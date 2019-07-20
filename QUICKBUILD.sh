@@ -28,28 +28,48 @@
 #
 # Note 2:
 # Enter target 21 (for x86.linux-release) when prompted during OpenSplice configure
+#
+# Note 3:
+# See comments for steps needed to compile for ARM
 
 SBD_HOME=$PWD
 
 # Download open source cFE and OpenSplice (these are the latest available releases currently)
-git clone -b '6.5.0a' https://github.com/nasa/cfe.git
+git clone -b 'v6.5.0a' https://github.com/nasa/cfe.git
 git clone -b 'OSPL_V6_9_190403OSS_RELEASE' --depth 1 https://github.com/ADLINK-IST/opensplice.git
 
 # Build OpenSplice
 cd $PWD/opensplice
-export INCLUDE_SERVICES_CMSOAP=no
-source ./configure # Enter target 21 (x86.linux-release)
+
+# Disable CMSOAP compilation, done by default for newer versions of Opensplice
+#export INCLUDE_SERVICES_CMSOAP=no
+
+# To enable cross compilation
+#export SPLICE_HOST=x86.linux-release
+#export CROSS_COMPILE=<cross-compiler path>/arm-buildroot-linux-gnueabi-
+
+source ./configure # Enter target 21 (x86.linux-release) or target 5 (armv7l.linux-release)
 make
+
+# Speed up make install by disabling docs compilation
+export OSPL_DOCS=none
+
 make install
-
-export OSPL_HOME="$SBD_HOME/opensplice/install/HDE/x86.linux"
-
-source $OSPL_HOME/release.com
 
 patch -Np1 -i ../patches/opensplice.patch
 
 cd ../code
+
+# Set up environment variables for PC compilation
+export OSPL_HOME="$SBD_HOME/opensplice/install/HDE/x86.linux"
+source $OSPL_HOME/release.com
+
+# Add the cross compiler to the Makefile in code and remove the -m32 flag for ARM compile
+#export OSPL_HOME="$SBD_HOME/opensplice/install/HDE/armv7l.linux"
+#export LD_LIBRARY_PATH="$SBD_HOME/opensplice/install/HDE/armv7l.linux/host/lib"
+
 make
+
 cp *.{c,cpp,h} $SBD_HOME/cfe/cfe/fsw/cfe-core/src/sb
 cp $SBD_HOME/code/libSBCommon.so $OSPL_HOME/lib
 cp $SBD_HOME/code/rtps.ini $SBD_HOME/cfe/build/cpu1/exe
