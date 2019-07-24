@@ -23,13 +23,13 @@ INCLUDES+=-I$(OSPL_HOME)/include
 INCLUDES+=-I$(OSPL_HOME)/include/sys
 
 # C++ Compiler settings.
-CXX=g++
-CXXFLAGS=-g -c -fPIC -m32
+CXX=$(CROSS_COMPILE)g++
+CXXFLAGS=-g -c -fPIC
 CPPFLAGS=$(INCLUDES)
 
 # Linker settings.
 LD_SO=$(CXX)
-LD_FLAGS=-shared -m32
+LD_FLAGS=-shared
 LD_LIBS=-lstdc++
 
 TARGET=libSBCommon.so
@@ -57,5 +57,5 @@ clean :
 	@rm -f *.o ospl-info.log
 	@rm -f *.so
 	@rm -f bld/*
-	@rmdir bld
+	@rm -rf bld
 

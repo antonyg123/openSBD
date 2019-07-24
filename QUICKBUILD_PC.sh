@@ -20,17 +20,21 @@
 
 # This script should be all that is needed to go from a new clone of openSBD to
 # a running barebones cFE with integrated OpenSplice SBD, assuming all component
-# prerequisites are installed. Tested on Ubuntu 16.04 64-bit.
-#
-# Note 1:
-# It is recommended that the beginning section (OpenSplice compile) is done
-# manually in case of build errors.
-#
-# Note 2:
-# Enter target 21 (for x86.linux-release) when prompted during OpenSplice configure
-#
-# Note 3:
-# See comments for steps needed to compile for ARM
+# prerequisites are installed. Tested on Ubuntu 16.04 64-bit and Buildroot Zedboard.
+
+#######################################################################
+#                      Building openSBD for PC                        #
+#######################################################################
+
+# -e: fail on error
+# -E: trap on error inheritance
+# -u: fail on unset variable
+set -eEu
+error_line() {
+    echo "Error on QUICKBUILD line $1"
+}
+
+trap 'error_line $LINENO' ERR
 
 SBD_HOME=$PWD
 
@@ -41,14 +45,13 @@ git clone -b 'OSPL_V6_9_190403OSS_RELEASE' --depth 1 https://github.com/ADLINK-I
 # Build OpenSplice
 cd $PWD/opensplice
 
-# Disable CMSOAP compilation, done by default for newer versions of Opensplice
-#export INCLUDE_SERVICES_CMSOAP=no
+export SPLICE_HOST=x86.linux-release
+export SPLICE_TARGET_ENV=x86.linux-release
 
-# To enable cross compilation
-#export SPLICE_HOST=x86.linux-release
-#export CROSS_COMPILE=<cross-compiler path>/arm-buildroot-linux-gnueabi-
-
-source ./configure # Enter target 21 (x86.linux-release) or target 5 (armv7l.linux-release)
+# configure triggers a false positive for -e
+set +e
+source ./configure # Don't export SPLICE_TARGET_ENV above to get a list of target options
+set -e
 make
 
 # Speed up make install by disabling docs compilation
@@ -56,7 +59,7 @@ export OSPL_DOCS=none
 
 make install
 
-patch -Np1 -i ../patches/opensplice.patch
+#git apply ../patches/opensplice.patch
 
 cd ../code
 
@@ -64,10 +67,7 @@ cd ../code
 export OSPL_HOME="$SBD_HOME/opensplice/install/HDE/x86.linux"
 source $OSPL_HOME/release.com
 
-# Add the cross compiler to the Makefile in code and remove the -m32 flag for ARM compile
-#export OSPL_HOME="$SBD_HOME/opensplice/install/HDE/armv7l.linux"
-#export LD_LIBRARY_PATH="$SBD_HOME/opensplice/install/HDE/armv7l.linux/host/lib"
-
+make clean
 make
 
 cp *.{c,cpp,h} $SBD_HOME/cfe/cfe/fsw/cfe-core/src/sb
@@ -78,14 +78,21 @@ cd ../cfe
 
 git submodule update --init osal
 
-patch -Np1 -i ../patches/sbd.patch
+@echo "If this patch fails to apply, add the changes manually"
+git apply ../patches/sbd.patch
 
 source setvars.sh
 cd build/cpu1
 make realclean
+cp $SBD_HOME/code/rtps.ini $SBD_HOME/cfe/build/cpu1/exe
 make config
 make
 cd exe
-cp $SBD_HOME/code/rtps.ini $SBD_HOME/cfe/build/cpu1/exe
 ./core-linux.bin
+
+# To set environment variables run in a new shell:
+#export OSPL_HOME="$PWD/opensplice/install/HDE/x86.linux"
+#source $OSPL_HOME/release.com
+#cd build/cpu1/exe
+#./core-linux.bin
 
